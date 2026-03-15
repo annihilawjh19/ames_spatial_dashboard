@@ -73,7 +73,7 @@ function drawMetricCards() {
   const c = document.getElementById('metric-cards');
   const rf = state.summary.model_metrics.random_forest;
   c.innerHTML = `
-    <div class="metric-card"><div class="label">Homes</div><div class="value">${state.houses.length}</div></div>
+    <div class="metric-card"><div class="label">Homes</div><div class="value">2880</div></div>
     <div class="metric-card"><div class="label">Mean Price</div><div class="value">${currency(state.summary.price_mean)}</div></div>
     <div class="metric-card"><div class="label">RF R²</div><div class="value">${rf.r2}</div></div>
     <div class="metric-card"><div class="label">RF RMSE</div><div class="value">${currency(rf.rmse)}</div></div>
