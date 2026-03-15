@@ -1,6 +1,6 @@
 # Interactive Spatial Analysis of Ames Housing Prices
 
-This Flask + D3 + Leaflet dashboard implements a spatial housing analysis project using `AmesHousingSpatial.csv`.
+This Flask + D3 + Leaflet dashboard implements a spatial housing analysis project using `AmesHousingSpatial.csv` for CSE 6242 Group 19.
 
 ## Features
 - Interactive map of homes by latitude/longitude
