@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Spatial Analysis of Ames Housing Prices</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <link rel = "icon" href ="/static/favicon.ico"/>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Interactive Spatial Analysis of Ames Housing Prices</h1>
+      <p>Linked visual analytics dashboard with spatial mapping, neighborhood summaries, price distributions, model diagnostics, and clustering.</p>
+    </div>
+    <div id="metric-cards"></div>
+  </header>
+
+  <section class="controls">
+    <div class="control">
+      <label for="neighborhood">Neighborhood</label>
+      <select id="neighborhood">
+        <option value = "All">All</option>
+            {% for n in neighborhoods %}
+              <option value ="{{n}}">{{n}}</option>
+            {% endfor %}
+      </select>
+    </div>
+   <div class="control">
+      <label for="metric">Map Coloring</label>
+      <select id="metric">
+        <option value="Sale_Price">Actual Sale Price</option>
+        <option value="Predicted_Price">Predicted Price</option>
+        <option value="Residual">Residual</option>
+        <option value="Cluster">Cluster</option>
+      </select>
+    </div>
+
+    <div class="control">
+      <label for="minPrice">Min Price</label>
+      <input type="number" id="minPrice" placeholder="e.g. 100000" />
+    </div>
+    <div class="control">
+      <label for="maxPrice">Max Price</label>
+      <input type="number" id="maxPrice" placeholder="e.g. 400000" />
+    </div>
+    <div class="control">
+      <label for="minYear">Min Year Built</label>
+      <input type="number" id="minYear" />
+    </div>
+    <div class="control">
+      <label for="maxYear">Max Year Built</label>
+      <input type="number" id="maxYear" />
+    </div>
+    <div class="control">
+      <label for="minQual">Min Overall Quality</label>
+      <input type="number" id="minQual" />
+    </div>
+    <div class="control control-buttons">
+      <button id="applyBtn">Apply Filters</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </section>
+
+  <main class="grid">
+    <section class="panel map-panel">
+      <div class="panel-header">
+        <h2>House Map</h2>
+        <span>Click on points for details</span>
+      </div>
+      <div id="map"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Neighborhood Median Prices</h2>
+      </div>
+      <svg id="neighborhoodChart"></svg>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Sale Price Distribution</h2>
+      </div>
+      <svg id="histogram"></svg>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Sale Price vs Living Area</h2>
+      </div>
+      <svg id="scatterplot"></svg>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Top Feature Importances</h2>
+      </div>
+      <svg id="importanceChart"></svg>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Cluster Summary</h2>
+      </div>
+      <svg id="clusterChart"></svg>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
