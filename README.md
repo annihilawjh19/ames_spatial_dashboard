@@ -50,4 +50,3 @@ http://127.0.0.1:5000/
 - The model uses a random forest regressor for prediction and a linear regression benchmark.
 - Clusters are computed from selected numeric and spatial variables.
 - The dataset does not include polygon neighborhood boundaries, so the dashboard uses point-level coordinates.
-- If you want a next step, extend the app with Moran's I, spatial lag models, or polygon overlays from an external GIS source.
