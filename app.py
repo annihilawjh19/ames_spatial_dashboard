@@ -130,7 +130,7 @@ cluster_cols = [
     "Garage_Cars",
     "Total_Bsmt_SF",
     "Year_Built",
-    "Sale_Price",
+    #"Sale_Price",
 ]
 
 cluster_data = DF[cluster_cols].fillna(DF[cluster_cols].median())

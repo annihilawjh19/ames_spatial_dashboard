@@ -341,15 +341,39 @@ function drawImportance() {
     .on('mouseleave', hideTip);
 }
 
-function getClusterLabel(d) {
-  if (d.avg_price < 150000) return "Affordable / Smaller Homes";
-  if (d.avg_price < 250000) return "Mid-range Homes";
-  if (d.avg_price >= 250000 && d.avg_area > 2000) return "Large / High-end Homes";
-  return "Mixed Segment";
+function getClusterLabel(d, priceExtent, areaExtent) {
+  const [pMin, pMax] = priceExtent;
+  const [aMin, aMax] = areaExtent;
+
+  const priceRange = pMax - pMin || 1;
+  const areaRange = aMax - aMin || 1;
+
+  const priceLevel = (d.avg_price - pMin) / priceRange;
+  const areaLevel = (d.avg_area - aMin) / areaRange;
+
+  if (priceLevel < 0.33 && areaLevel < 0.33) {
+    return "Affordable / Compact Homes";
+  }
+
+  if (priceLevel > 0.66 && areaLevel > 0.66) {
+    return "Large / Premium Homes";
+  }
+
+  if (priceLevel > 0.66) {
+    return "High-price Segment";
+  }
+
+  if (areaLevel > 0.66) {
+    return "Spacious Homes";
+  }
+
+  return "Mid-range Homes";
 }
 
 function drawClusters() {
   const data = state.clusters;
+  const priceExtent = d3.extent(data, d=>d.avg_price);
+  const areaExtent = d3.extent(data, d=>d.avg_area);
   const { g, innerW, innerH } = baseSvg('#clusterChart');
 
   const x = d3.scaleBand()
@@ -377,7 +401,7 @@ function drawClusters() {
     .attr('fill', '#42a5f5')
     .on('mousemove', (event, d) => showTip(event, `
       <strong>Cluster ${d.Cluster}</strong><br>
-      <em>${getClusterLabel(d)}</em><br>
+      <em>${getClusterLabel(d, priceExtent, areaExtent)}</em><br>
       Avg Price: ${currency(d.avg_price)}<br>
       Avg Area: ${d3.format(',')(d.avg_area)}<br>
       Avg Quality: ${d3.format(".2f")(d.avg_quality)}<br>
@@ -397,7 +421,7 @@ function drawClusters() {
 
   data.forEach(d => {
     legend.append('div')
-      .html(`<strong>Cluster ${d.Cluster}:</strong> ${getClusterLabel(d)}`);
+      .html(`<strong>Cluster ${d.Cluster}:</strong> ${getClusterLabel(d, priceExtent, areaExtent)}`);
   });
 }
 function showTip(event, html) {
