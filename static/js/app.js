@@ -73,7 +73,7 @@ function drawMetricCards() {
   const c = document.getElementById('metric-cards');
   const rf = state.summary.model_metrics.random_forest;
   c.innerHTML = `
-    <div class="metric-card"><div class="label">Homes</div><div class="value">2880</div></div>
+    <div class="metric-card"><div class="label">Homes</div><div class="value">${state.summary.row_count}</div></div>
     <div class="metric-card"><div class="label">Mean Price</div><div class="value">${currency(state.summary.price_mean)}</div></div>
     <div class="metric-card"><div class="label">RF R²</div><div class="value">${rf.r2}</div></div>
     <div class="metric-card"><div class="label">RF RMSE</div><div class="value">${currency(rf.rmse)}</div></div>
@@ -115,6 +115,10 @@ function updateMap() {
     .filter(v => !isNaN(v));
 
   const color = getColorScale(metric, values);
+  updateLegend(metric, color, values);
+  const sizeScale = d3.scaleSqrt()
+                        .domain(d3.extent(values))
+                        .range([4,12]);
 
   state.houses.forEach(d => {
 
@@ -124,7 +128,7 @@ function updateMap() {
 
     const markerColor = isNaN(val) ? "blue" : color(val);
 
-    const radius = isNaN(val) ? 4 : Math.max(3, Math.sqrt(val)/200);
+    const radius = isNaN(val) ? 5: sizeScale(Math.abs(val));
 
     const marker = L.circleMarker([lat,lon],{
       //icon: blueIcon
@@ -192,6 +196,75 @@ function updateMap() {
     map.fitBounds(layerGroup.getBounds());
   }
 }
+
+let legend = L.control({position: "bottomright"});
+
+legend.onAdd = function(){
+  this._div = L.DomUtil.create('div', 'info legend');
+  return this._div;
+}
+legend.addTo(map);
+
+function updateLegend(metric, colorScale, values) {
+  const div = legend._div;
+
+  if (!values.length) {
+    div.innerHTML = "";
+    return;
+  }
+
+  // Cluster (categorical)
+  if (metric === "Cluster") {
+    const unique = [...new Set(values)].sort();
+    div.innerHTML = "<strong>Cluster</strong><br>";
+    
+    unique.forEach(v => {
+      div.innerHTML += `
+        <div>
+          <span style="
+            display:inline-block;
+            width:12px;
+            height:12px;
+            background:${colorScale(v)};
+            margin-right:6px;
+          "></span>
+          ${v}
+        </div>
+      `;
+    });
+
+    return;
+  }
+
+  // Continuous (price, residual, etc.)
+  const min = d3.min(values);
+  const max = d3.max(values);
+
+  const steps = 6;
+  const stepSize = (max - min) / steps;
+
+  div.innerHTML = `<strong>${metric}</strong><br>`;
+
+  for (let i = 0; i < steps; i++) {
+    const v1 = min + i * stepSize;
+    const v2 = v1 + stepSize;
+
+    div.innerHTML += `
+      <div>
+        <span style="
+          display:inline-block;
+          width:12px;
+          height:12px;
+          background:${colorScale((v1 + v2)/2)};
+          margin-right:6px;
+        "></span>
+        ${currency(v1)} – ${currency(v2)}
+      </div>
+    `;
+  }
+}
+
+
 function baseSvg(selector) {
   const svg = d3.select(selector);
   svg.selectAll('*').remove();
@@ -268,21 +341,65 @@ function drawImportance() {
     .on('mouseleave', hideTip);
 }
 
+function getClusterLabel(d) {
+  if (d.avg_price < 150000) return "Affordable / Smaller Homes";
+  if (d.avg_price < 250000) return "Mid-range Homes";
+  if (d.avg_price >= 250000 && d.avg_area > 2000) return "Large / High-end Homes";
+  return "Mixed Segment";
+}
+
 function drawClusters() {
   const data = state.clusters;
   const { g, innerW, innerH } = baseSvg('#clusterChart');
-  const x = d3.scaleBand().domain(data.map(d => String(d.Cluster))).range([0, innerW]).padding(0.2);
-  const y = d3.scaleLinear().domain([0, d3.max(data, d => d.avg_price)]).nice().range([innerH, 0]);
-  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x));
-  g.append('g').call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
-  g.selectAll('rect').data(data).enter().append('rect')
-    .attr('x', d => x(String(d.Cluster))).attr('y', d => y(d.avg_price))
-    .attr('width', x.bandwidth()).attr('height', d => innerH - y(d.avg_price))
-    .attr('fill', '#42a5f5')
-    .on('mousemove', (event, d) => showTip(event, `Cluster ${d.Cluster}<br>Avg Price: ${currency(d.avg_price)}<br>Avg Area: ${d3.format(',')(d.avg_area)}<br>Avg Quality: ${d3.format('.2f')(d.avg_quality)}<br>Count: ${d.n_houses}`))
-    .on('mouseleave', hideTip);
-}
 
+  const x = d3.scaleBand()
+    .domain(data.map(d => `C${d.Cluster}`))
+    .range([0, innerW])
+    .padding(0.2);
+
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.avg_price)])
+    .nice()
+    .range([innerH, 0]);
+
+  g.append('g')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x));
+
+  g.append('g')
+    .call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
+
+  g.selectAll('rect').data(data).enter().append('rect')
+    .attr('x', d => x(`C${d.Cluster}`))
+    .attr('y', d => y(d.avg_price))
+    .attr('width', x.bandwidth())
+    .attr('height', d => innerH - y(d.avg_price))
+    .attr('fill', '#42a5f5')
+    .on('mousemove', (event, d) => showTip(event, `
+      <strong>Cluster ${d.Cluster}</strong><br>
+      <em>${getClusterLabel(d)}</em><br>
+      Avg Price: ${currency(d.avg_price)}<br>
+      Avg Area: ${d3.format(',')(d.avg_area)}<br>
+      Avg Quality: ${d3.format(".2f")(d.avg_quality)}<br>
+      Count: ${d.n_houses}
+    `))
+    .on('mouseleave', hideTip);
+
+  const container = d3.select('#clusterChart').node().parentNode;
+
+  d3.select(container).selectAll('.cluster-legend').remove();
+
+  const legend = d3.select(container)
+    .append('div')
+    .attr('class', 'cluster-legend')
+    .style('margin-top', '8px')
+    .style('font-size', '0.85rem');
+
+  data.forEach(d => {
+    legend.append('div')
+      .html(`<strong>Cluster ${d.Cluster}:</strong> ${getClusterLabel(d)}`);
+  });
+}
 function showTip(event, html) {
   tooltip.style('opacity', 1).html(html)
     .style('left', `${event.pageX + 6}px`)

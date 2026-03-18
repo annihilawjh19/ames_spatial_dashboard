@@ -163,6 +163,21 @@ header p {
   border-radius: 50%;
   border: 1px solid black;
 }
+
+.legend {
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.legend strong {
+  display: block;
+  margin-bottom: 4px;
+}
 @media (max-width: 1200px) {
   .controls { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
   .grid { grid-template-columns: 1fr; }
