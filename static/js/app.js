@@ -91,11 +91,12 @@ function initControls(summary) {
 
 function getColorScale(metric, values) {
   if (metric === 'Cluster') {
-    return d3.scaleOrdinal(d3.schemeTableau10);
+    return d3.scaleOrdinal(d3.schemeTableau10)
+             .domain([...new Set(values)]);
   }
   if (metric === 'Residual') {
     const maxAbs = d3.max(values, d => Math.abs(d)) || 1;
-    return d3.scaleSequential(d3.interpolateRdBu).domain([maxAbs, -maxAbs]);
+    return d3.scaleSequential(d3.interpolateRdBu).domain([-maxAbs, maxAbs]);
   }
   const extent = d3.extent(values);
   return d3.scaleSequential(d3.interpolateViridis).domain(extent);
@@ -123,10 +124,15 @@ function updateMap() {
 
     const markerColor = isNaN(val) ? "blue" : color(val);
 
-    const radius = Math.max(3, Math.sqrt(val)/200);
+    const radius = isNaN(val) ? 4 : Math.max(3, Math.sqrt(val)/200);
 
-    const marker = L.marker([lat,lon],{
-      icon: blueIcon
+    const marker = L.circleMarker([lat,lon],{
+      //icon: blueIcon
+      radius: radius,
+      fillColor: markerColor,
+      color: "#333",
+      weight: 1,
+      fillOpacity: 0.8
     });
 
     //marker.bindPopup(`
