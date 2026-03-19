@@ -154,6 +154,7 @@ function updateMap() {
       Sale Price: ${currency(d.Sale_Price)}<br>
       Predicted: ${currency(d.Predicted_Price)}<br>
       Residual: ${currency(d.Residual)}<br>
+      Interval: ${currency(d.PI_Lower)} - ${currency(d.PI_Upper)}<br>
       Living Area: ${d.Gr_Liv_Area}<br>
       Overall Quality: ${d.Overall_Cond}<br>
       Year Built: ${d.Year_Built}

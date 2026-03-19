@@ -50,8 +50,14 @@ NUM_COLS.remove(TARGET)
 X = DF.drop(columns=[TARGET])
 y = DF[TARGET]
 
+# first split
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
+)
+
+# second split (for conformal calibration)
+X_train, X_cal, y_train, y_cal = train_test_split(
+    X_train, y_train, test_size=0.2, random_state=42
 )
 
 
@@ -69,7 +75,21 @@ rf_model.fit(X_train[NUM_COLS], y_train)
 
 rf_pred = rf_model.predict(X_test[NUM_COLS])
 
+# --------------------------------------------------
+# Conformal prediction (95% interval)
+# --------------------------------------------------
 
+# predictions on calibration set
+cal_preds = rf_model.predict(X_cal[NUM_COLS])
+
+# absolute residuals
+cal_residuals = np.abs(y_cal - cal_preds)
+
+# confidence level
+alpha = 0.05
+
+# quantile (conformal radius)
+q = np.quantile(cal_residuals, 1 - alpha)
 
 # --------------------------------------------------
 # Linear Regression model
@@ -119,8 +139,13 @@ FEATURE_IMPORTANCE_DF = (
 DF["Predicted_Price"] = rf_model.predict(DF[NUM_COLS])
 DF["Residual"] = DF[TARGET] - DF["Predicted_Price"]
 
+DF["PI_Lower"] = DF["Predicted_Price"] - q
+DF["PI_Upper"] = DF["Predicted_Price"] + q
+
+DF["PI_Width"] = DF["PI_Upper"] - DF["PI_Lower"]
+
 print("\nUpdated DF with rf predicted prices and residuals:")
-print(DF.loc[:5, ["Predicted_Price", TARGET, "Residual"]])
+print(DF.loc[:5, ["PI_Lower", TARGET, "PI_Upper"]])
 # --------------------------------------------------
 # Clustering
 # --------------------------------------------------
@@ -232,6 +257,9 @@ def houses():
         "Predicted_Price",
         "Residual",
         "Cluster",
+        "PI_Lower",
+        "PI_Upper",
+        "PI_Width",
         "Overall_Cond",
         "Gr_Liv_Area",
         "Lot_Area",
