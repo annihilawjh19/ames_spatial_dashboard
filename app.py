@@ -144,8 +144,8 @@ DF["PI_Upper"] = DF["Predicted_Price"] + q
 
 DF["PI_Width"] = DF["PI_Upper"] - DF["PI_Lower"]
 
-print("\nUpdated DF with rf predicted prices and residuals:")
-print(DF.loc[:5, ["PI_Lower", TARGET, "PI_Upper"]])
+#print("\nUpdated DF with rf predicted prices and residuals:")
+#print(DF.loc[:5, ["PI_Lower", TARGET, "PI_Upper"]])
 # --------------------------------------------------
 # Clustering
 # --------------------------------------------------
@@ -349,6 +349,20 @@ def clusters():
 
     return jsonify(grouped.to_dict(orient="records"))
 
+@app.route("/api/residuals")
+def residuals():
+    
+    filtered = apply_filters(DF, request.args)
+
+    data = filtered[[
+        "Predicted_Price",
+        "Residual",
+        "Neighborhood"
+    ]].dropna()
+
+    data.columns = ["x", "y", "Neighborhood"]
+
+    return jsonify(data.to_dict(orient="records"))
 
 # --------------------------------------------------
 # Run server

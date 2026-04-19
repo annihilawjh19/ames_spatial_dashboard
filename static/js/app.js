@@ -5,7 +5,8 @@ const state = {
   histogram: [],
   scatter: [],
   importance: [],
-  clusters: []
+  clusters: [],
+  residuals: []
 };
 
 const tooltip = d3.select('body').append('div').attr('class', 'tooltip').style('opacity', 0);
@@ -184,7 +185,7 @@ function updateMap() {
           showTip(event, tip);
 
         })
-        .on("mouse leave", hideTip);
+        .on("mouseleave", hideTip);
 
     });
 
@@ -266,79 +267,274 @@ function updateLegend(metric, colorScale, values) {
 }
 
 
-function baseSvg(selector) {
+function baseSvg(selector, title = "", subtitle = "") {
   const svg = d3.select(selector);
   svg.selectAll('*').remove();
+
   const width = svg.node().clientWidth;
   const height = svg.node().clientHeight;
-  const margin = { top: 20, right: 20, bottom: 65, left: 70 };
+  const margin = { top: 52, right: 24, bottom: 68, left: 72 };
   const innerW = width - margin.left - margin.right;
   const innerH = height - margin.top - margin.bottom;
-  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  svg.append('rect')
+    .attr('class', 'chart-bg')
+    .attr('x', 0)
+    .attr('y', 0)
+    .attr('width', width)
+    .attr('height', height);
+
+  if (title) {
+    svg.append('text')
+      .attr('class', 'chart-title')
+      .attr('x', 18)
+      .attr('y', 24)
+      .text(title);
+  }
+
+  if (subtitle) {
+    svg.append('text')
+      .attr('class', 'chart-subtitle')
+      .attr('x', 18)
+      .attr('y', 42)
+      .text(subtitle);
+  }
+
+  const g = svg.append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
   return { svg, g, width, height, innerW, innerH, margin };
 }
 
 function drawNeighborhoodChart() {
   const data = state.neighborhoods.slice(0, 15);
-  const { g, innerW, innerH } = baseSvg('#neighborhoodChart');
-  const x = d3.scaleBand().domain(data.map(d => d.Neighborhood)).range([0, innerW]).padding(0.15);
-  const y = d3.scaleLinear().domain([0, d3.max(data, d => d.median_price)]).nice().range([innerH, 0]);
+  const { g, innerW, innerH } = baseSvg(
+    '#neighborhoodChart',
+    '',
+    ''
+  );
 
-  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x)).selectAll('text')
-    .attr('transform', 'rotate(-40)').style('text-anchor', 'end');
-  g.append('g').call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
+  const x = d3.scaleBand()
+    .domain(data.map(d => d.Neighborhood))
+    .range([0, innerW])
+    .padding(0.22);
 
-  g.selectAll('rect').data(data).enter().append('rect')
-    .attr('x', d => x(d.Neighborhood)).attr('y', d => y(d.median_price))
-    .attr('width', x.bandwidth()).attr('height', d => innerH - y(d.median_price))
-    .attr('fill', '#5c6bc0')
-    .on('mousemove', (event, d) => showTip(event, `${d.Neighborhood}<br>Median: ${currency(d.median_price)}<br>Count: ${d.n_houses}`))
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.median_price)])
+    .nice()
+    .range([innerH, 0]);
+
+  g.append('g')
+    .attr('class', 'grid')
+    .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(''));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x))
+    .selectAll('text')
+    .attr('transform', 'rotate(-35)')
+    .style('text-anchor', 'end');
+
+  g.append('g')
+    .attr('class', 'axis')
+    .call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
+
+  g.selectAll('rect')
+    .data(data)
+    .enter()
+    .append('rect')
+    .attr('class', 'bar')
+    .attr('x', d => x(d.Neighborhood))
+    .attr('y', d => y(d.median_price))
+    .attr('width', x.bandwidth())
+    .attr('height', d => innerH - y(d.median_price))
+    .attr('fill', 'url(#barGradient1)')
+    .on('mousemove', (event, d) =>
+      showTip(event, `<strong>${d.Neighborhood}</strong><br>Median: ${currency(d.median_price)}<br>Count: ${d.n_houses}`)
+    )
     .on('mouseleave', hideTip);
+
+  const defs = g.append('defs');
+  const grad = defs.append('linearGradient')
+    .attr('id', 'barGradient1')
+    .attr('x1', '0%')
+    .attr('x2', '0%')
+    .attr('y1', '0%')
+    .attr('y2', '100%');
+
+  grad.append('stop').attr('offset', '0%').attr('stop-color', '#7c8cff');
+  grad.append('stop').attr('offset', '100%').attr('stop-color', '#4e5fe6');
 }
 
 function drawHistogram() {
   const data = state.histogram;
-  const { g, innerW, innerH } = baseSvg('#histogram');
-  const x = d3.scaleLinear().domain([d3.min(data, d => d.bin_start), d3.max(data, d => d.bin_end)]).range([0, innerW]);
-  const y = d3.scaleLinear().domain([0, d3.max(data, d => d.count)]).nice().range([innerH, 0]);
-  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).tickFormat(d => `$${d3.format(',.0f')(d)}`));
-  g.append('g').call(d3.axisLeft(y));
-  g.selectAll('rect').data(data).enter().append('rect')
+  const { g, innerW, innerH } = baseSvg(
+    '#histogram',
+    '',
+    ''
+  );
+
+  const x = d3.scaleLinear()
+    .domain([d3.min(data, d => d.bin_start), d3.max(data, d => d.bin_end)])
+    .range([0, innerW]);
+
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.count)])
+    .nice()
+    .range([innerH, 0]);
+
+  g.append('g')
+    .attr('class', 'grid')
+    .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(''));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).ticks(6).tickFormat(d => `$${d3.format(',.0f')(d)}`));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .call(d3.axisLeft(y));
+
+  g.selectAll('rect')
+    .data(data)
+    .enter()
+    .append('rect')
+    .attr('class', 'bar')
     .attr('x', d => x(d.bin_start) + 1)
     .attr('y', d => y(d.count))
     .attr('width', d => Math.max(0, x(d.bin_end) - x(d.bin_start) - 2))
     .attr('height', d => innerH - y(d.count))
-    .attr('fill', '#26a69a')
-    .on('mousemove', (event, d) => showTip(event, `${currency(d.bin_start)} - ${currency(d.bin_end)}<br>Count: ${d.count}`))
+    .attr('fill', '#22b8a7')
+    .attr('opacity', 0.9)
+    .on('mousemove', (event, d) =>
+      showTip(event, `<strong>${currency(d.bin_start)} – ${currency(d.bin_end)}</strong><br>Count: ${d.count}`)
+    )
     .on('mouseleave', hideTip);
 }
 
 function drawScatter() {
   const data = state.scatter;
-  const { g, innerW, innerH } = baseSvg('#scatterplot');
-  const x = d3.scaleLinear().domain(d3.extent(data, d => d.x)).nice().range([0, innerW]);
-  const y = d3.scaleLinear().domain(d3.extent(data, d => d.y)).nice().range([innerH, 0]);
-  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x));
-  g.append('g').call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
-  g.selectAll('circle').data(data).enter().append('circle')
-    .attr('cx', d => x(d.x)).attr('cy', d => y(d.y)).attr('r', 3.5)
-    .attr('fill', '#ef5350').attr('opacity', 0.55)
-    .on('mousemove', (event, d) => showTip(event, `${d.Neighborhood}<br>Living Area: ${d3.format(',')(d.x)}<br>Sale Price: ${currency(d.y)}`))
+  const { g, innerW, innerH } = baseSvg(
+    '#scatterplot',
+    '',
+    ''
+  );
+
+  const x = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.x))
+    .nice()
+    .range([0, innerW]);
+
+  const y = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.y))
+    .nice()
+    .range([innerH, 0]);
+
+  g.append('g')
+    .attr('class', 'grid')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).tickSize(-innerH).tickFormat(''));
+
+  g.append('g')
+    .attr('class', 'grid')
+    .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(''));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
+
+  g.selectAll('circle')
+    .data(data)
+    .enter()
+    .append('circle')
+    .attr('class', 'dot')
+    .attr('cx', d => x(d.x))
+    .attr('cy', d => y(d.y))
+    .attr('r', 4)
+    .attr('fill', '#ef5350')
+    .attr('opacity', 0.45)
+    .attr('stroke', '#ffffff')
+    .attr('stroke-width', 0.7)
+    .on('mousemove', (event, d) =>
+      showTip(event, `<strong>${d.Neighborhood}</strong><br>Living Area: ${d3.format(',')(d.x)} sqft<br>Sale Price: ${currency(d.y)}`)
+    )
     .on('mouseleave', hideTip);
+
+  // Simple regression line
+  const n = data.length;
+  const meanX = d3.mean(data, d => d.x);
+  const meanY = d3.mean(data, d => d.y);
+  const num = d3.sum(data, d => (d.x - meanX) * (d.y - meanY));
+  const den = d3.sum(data, d => (d.x - meanX) ** 2);
+  const slope = den === 0 ? 0 : num / den;
+  const intercept = meanY - slope * meanX;
+
+  const xLine = d3.extent(data, d => d.x);
+  const lineData = xLine.map(xx => ({ x: xx, y: intercept + slope * xx }));
+
+  g.append('path')
+    .datum(lineData)
+    .attr('fill', 'none')
+    .attr('stroke', '#263238')
+    .attr('stroke-width', 2)
+    .attr('stroke-dasharray', '6 4')
+    .attr('d', d3.line()
+      .x(d => x(d.x))
+      .y(d => y(d.y)));
 }
 
 function drawImportance() {
   const data = state.importance.slice(0, 15).reverse();
-  const { g, innerW, innerH } = baseSvg('#importanceChart');
-  const y = d3.scaleBand().domain(data.map(d => d.feature)).range([innerH, 0]).padding(0.15);
-  const x = d3.scaleLinear().domain([0, d3.max(data, d => d.importance)]).nice().range([0, innerW]);
-  g.append('g').call(d3.axisLeft(y));
-  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x));
-  g.selectAll('rect').data(data).enter().append('rect')
-    .attr('y', d => y(d.feature)).attr('x', 0)
-    .attr('height', y.bandwidth()).attr('width', d => x(d.importance))
+  const { g, innerW, innerH } = baseSvg(
+    '#importanceChart',
+    '',
+    ''
+  );
+
+  const y = d3.scaleBand()
+    .domain(data.map(d => d.feature))
+    .range([innerH, 0])
+    .padding(0.2);
+
+  const x = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.importance)])
+    .nice()
+    .range([0, innerW]);
+
+  g.append('g')
+    .attr('class', 'grid')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).tickSize(-innerH).tickFormat(''));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .call(d3.axisLeft(y));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x));
+
+  g.selectAll('rect')
+    .data(data)
+    .enter()
+    .append('rect')
+    .attr('class', 'bar')
+    .attr('y', d => y(d.feature))
+    .attr('x', 0)
+    .attr('height', y.bandwidth())
+    .attr('width', d => x(d.importance))
     .attr('fill', '#7e57c2')
-    .on('mousemove', (event, d) => showTip(event, `${d.feature}<br>Importance: ${d3.format('.4f')(d.importance)}`))
+    .on('mousemove', (event, d) =>
+      showTip(event, `<strong>${d.feature}</strong><br>Importance: ${d3.format('.4f')(d.importance)}`)
+    )
     .on('mouseleave', hideTip);
 }
 
@@ -373,43 +569,81 @@ function getClusterLabel(d, priceExtent, areaExtent) {
 
 function drawClusters() {
   const data = state.clusters;
-  const priceExtent = d3.extent(data, d=>d.avg_price);
-  const areaExtent = d3.extent(data, d=>d.avg_area);
-  const { g, innerW, innerH } = baseSvg('#clusterChart');
+
+  const priceExtent = d3.extent(data, d => d.avg_price);
+  const areaExtent = d3.extent(data, d => d.avg_area);
+
+  const { g, innerW, innerH } = baseSvg(
+    '#clusterChart',
+    '',
+    ''
+  );
 
   const x = d3.scaleBand()
     .domain(data.map(d => `C${d.Cluster}`))
     .range([0, innerW])
-    .padding(0.2);
+    .padding(0.25);
 
   const y = d3.scaleLinear()
     .domain([0, d3.max(data, d => d.avg_price)])
     .nice()
     .range([innerH, 0]);
 
+  const color = d3.scaleOrdinal(d3.schemeTableau10)
+    .domain(data.map(d => d.Cluster));
+
+  // gridlines
   g.append('g')
+    .attr('class', 'grid')
+    .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(''));
+
+  // axes
+  g.append('g')
+    .attr('class', 'axis')
     .attr('transform', `translate(0,${innerH})`)
     .call(d3.axisBottom(x));
 
   g.append('g')
+    .attr('class', 'axis')
     .call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
 
-  g.selectAll('rect').data(data).enter().append('rect')
+  // bars
+  const bars = g.selectAll('rect')
+    .data(data)
+    .enter()
+    .append('rect')
+    .attr('class', 'bar')
     .attr('x', d => x(`C${d.Cluster}`))
     .attr('y', d => y(d.avg_price))
     .attr('width', x.bandwidth())
     .attr('height', d => innerH - y(d.avg_price))
-    .attr('fill', '#42a5f5')
+    .attr('fill', d => color(d.Cluster))
+    .attr('opacity', 0.9)
     .on('mousemove', (event, d) => showTip(event, `
       <strong>Cluster ${d.Cluster}</strong><br>
-      <em>${getClusterLabel(d, priceExtent, areaExtent)}</em><br>
+      <em>${getClusterLabel(d, priceExtent, areaExtent)}</em><br><br>
       Avg Price: ${currency(d.avg_price)}<br>
-      Avg Area: ${d3.format(',')(d.avg_area)}<br>
+      Avg Area: ${d3.format(',')(d.avg_area)} sqft<br>
       Avg Quality: ${d3.format(".2f")(d.avg_quality)}<br>
-      Count: ${d.n_houses}
+      Homes: ${d.n_houses}
     `))
     .on('mouseleave', hideTip);
 
+  // value labels on top
+  g.selectAll('.label')
+    .data(data)
+    .enter()
+    .append('text')
+    .attr('x', d => x(`C${d.Cluster}`) + x.bandwidth()/2)
+    .attr('y', d => y(d.avg_price) - 6)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '0.75rem')
+    .attr('fill', '#374151')
+    .text(d => currency(d.avg_price));
+
+  // -----------------------------
+  // Legend (cleaned up)
+  // -----------------------------
   const container = d3.select('#clusterChart').node().parentNode;
 
   d3.select(container).selectAll('.cluster-legend').remove();
@@ -417,14 +651,152 @@ function drawClusters() {
   const legend = d3.select(container)
     .append('div')
     .attr('class', 'cluster-legend')
-    .style('margin-top', '8px')
-    .style('font-size', '0.85rem');
+    .style('margin-top', '10px')
+    .style('font-size', '0.85rem')
+    .style('display', 'grid')
+    .style('grid-template-columns', 'repeat(2, 1fr)')
+    .style('gap', '6px');
 
   data.forEach(d => {
     legend.append('div')
-      .html(`<strong>Cluster ${d.Cluster}:</strong> ${getClusterLabel(d, priceExtent, areaExtent)}`);
+      .style('display', 'flex')
+      .style('align-items', 'center')
+      .html(`
+        <span style="
+          width:12px;
+          height:12px;
+          background:${color(d.Cluster)};
+          display:inline-block;
+          margin-right:6px;
+          border-radius:3px;
+        "></span>
+        <strong>C${d.Cluster}:</strong> ${getClusterLabel(d, priceExtent, areaExtent)}
+      `);
   });
 }
+
+function drawResidualPlot() {
+  const data = state.residuals;
+  console.log(data);
+  const { g, innerW, innerH } = baseSvg(
+    '#residualPlot',
+    '',
+    'Prediction error vs predicted price'
+  );
+
+  const x = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.x))
+    .nice()
+    .range([0, innerW]);
+
+  const y = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.y))
+    .nice()
+    .range([innerH, 0]);
+
+  // -----------------------------
+  // Gridlines
+  // -----------------------------
+  g.append('g')
+    .attr('class', 'grid')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).tickSize(-innerH).tickFormat(''));
+
+  g.append('g')
+    .attr('class', 'grid')
+    .call(d3.axisLeft(y).tickSize(-innerW).tickFormat(''));
+
+  // -----------------------------
+  // Axes
+  // -----------------------------
+  g.append('g')
+    .attr('class', 'axis')
+    .attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).tickFormat(d => `$${d3.format(',.0f')(d)}`));
+
+  g.append('g')
+    .attr('class', 'axis')
+    .call(d3.axisLeft(y).tickFormat(d => `$${d3.format(',.0f')(d)}`));
+
+  // -----------------------------
+  // Zero line (important!)
+  // -----------------------------
+  g.append('line')
+    .attr('x1', 0)
+    .attr('x2', innerW)
+    .attr('y1', y(0))
+    .attr('y2', y(0))
+    .attr('stroke', '#374151')
+    .attr('stroke-width', 1.5)
+    .attr('stroke-dasharray', '5 4');
+
+  // -----------------------------
+  // Color scale (by neighborhood)
+  // -----------------------------
+  const neighborhoods = [...new Set(data.map(d => d.Neighborhood))];
+
+  const color = d3.scaleOrdinal(d3.schemeTableau10)
+    .domain(neighborhoods);
+
+  // -----------------------------
+  // Points
+  // -----------------------------
+  g.selectAll('circle')
+    .data(data)
+    .enter()
+    .append('circle')
+    .attr('class', 'dot')
+    .attr('cx', d => x(d.x))
+    .attr('cy', d => y(d.y))
+    .attr('r', 4)
+    .attr('fill', d => color(d.Neighborhood))
+    .attr('opacity', 0.6)
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 0.6)
+    .on('mousemove', (event, d) => showTip(event, `
+      <strong>${d.Neighborhood}</strong><br>
+      Predicted: ${currency(d.x)}<br>
+      Residual: ${currency(d.y)}
+    `))
+    .on('mouseleave', hideTip);
+
+  // -----------------------------
+  // Optional smoothing (trend line)
+  // -----------------------------
+  const sorted = data.slice().sort((a, b) => a.x - b.x);
+
+  const line = d3.line()
+    .x(d => x(d.x))
+    .y(d => y(d.y))
+    .curve(d3.curveMonotoneX);
+
+  g.append('path')
+    .datum(sorted)
+    .attr('fill', 'none')
+    .attr('stroke', '#111827')
+    .attr('stroke-width', 1.5)
+    .attr('opacity', 0.6)
+    .attr('d', line);
+
+  // -----------------------------
+  // Axis labels
+  // -----------------------------
+  g.append('text')
+    .attr('x', innerW / 2)
+    .attr('y', innerH + 50)
+    .attr('text-anchor', 'middle')
+    .attr('fill', '#5f6b7a')
+    .text('');
+
+  g.append('text')
+    .attr('transform', 'rotate(-90)')
+    .attr('x', -innerH / 2)
+    .attr('y', -50)
+    .attr('text-anchor', 'middle')
+    .attr('fill', '#5f6b7a')
+    .text('');
+}
+
 function showTip(event, html) {
   tooltip.style('opacity', 1).html(html)
     .style('left', `${event.pageX + 6}px`)
@@ -437,13 +809,14 @@ async function refresh() {
   const q = buildQuery();
    console.log("QUERY STRING:", q);
   const suffix = q ? `?${q}` : '';
-  [state.houses, state.neighborhoods, state.histogram, state.scatter, state.importance, state.clusters] = await Promise.all([
+  [state.houses, state.neighborhoods, state.histogram, state.scatter, state.importance, state.clusters, state.residuals] = await Promise.all([
     getJSON(`/api/houses${suffix}`),
     getJSON(`/api/neighborhoods${suffix}`),
     getJSON(`/api/price_histogram${suffix}`),
     getJSON(`/api/scatter${suffix}`),
     getJSON('/api/feature_importance?top_n=20'),
-    getJSON(`/api/clusters${suffix}`)
+    getJSON(`/api/clusters${suffix}`),
+    getJSON(`/api/residuals${suffix}`)
   ]);
   drawMetricCards();
   updateMap();
@@ -452,6 +825,7 @@ async function refresh() {
   drawScatter();
   drawImportance();
   drawClusters();
+  drawResidualPlot();
 }
 
 async function init() {
@@ -486,6 +860,7 @@ window.addEventListener('resize', () => {
   drawScatter();
   drawImportance();
   drawClusters();
+  drawResidualPlot();
 });
 
 init();
